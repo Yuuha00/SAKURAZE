@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -12,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Container from '@/components/common/Container';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Upload } from 'lucide-react';
 import GenreSelector from '@/components/novels/GenreSelector';
 import TagSelector from '@/components/novels/TagSelector';
@@ -30,9 +28,6 @@ interface Tag {
 interface NovelFormData {
   title: string;
   description: string;
-  status: 'ongoing' | 'completed' | 'hiatus';
-  genres: Genre[];
-  tags: Tag[];
 }
 
 const CreateNovel = () => {
@@ -51,6 +46,16 @@ const CreateNovel = () => {
   const { register, handleSubmit, formState: { errors } } = useForm<NovelFormData>();
 
   useEffect(() => {
+    if (!user) {
+      navigate('/auth/login');
+      toast({
+        title: "Authentication required",
+        description: "You need to be logged in to create a novel",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const fetchGenresAndTags = async () => {
       try {
         const [genresResponse, tagsResponse] = await Promise.all([
@@ -74,104 +79,119 @@ const CreateNovel = () => {
     };
 
     fetchGenresAndTags();
-  }, [toast]);
-
-  useEffect(() => {
-    if (!user) {
-      navigate('/auth/login');
-      toast({
-        title: "Authentication required",
-        description: "You need to be logged in to create a novel",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Fetch available genres
-    const fetchGenres = async () => {
-      const { data, error } = await supabase
-        .from('genres')
-        .select('id, name');
-      
-      if (error) {
-        console.error('Error fetching genres:', error);
-        return;
-      }
-      
-      if (data) {
-        setAvailableGenres(data);
-      }
-    };
-    
-    fetchGenres();
   }, [user, navigate, toast]);
-  
+
   const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        toast({
+          title: "Error",
+          description: "Image size should be less than 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
       setCoverImage(file);
       setCoverImageUrl(URL.createObjectURL(file));
     }
   };
 
   const uploadCoverImage = async (novelId: string, file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${novelId}.${fileExt}`;
-    const filePath = `novels/${fileName}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('covers')
-      .upload(filePath, file, { upsert: true });
-    
-    if (uploadError) {
-      console.error('Error uploading image:', uploadError);
-      throw uploadError;
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${novelId}.${fileExt}`;
+      const filePath = `novels/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('covers')
+        .upload(filePath, file, { upsert: true });
+      
+      if (uploadError) throw uploadError;
+      
+      const { data } = supabase.storage
+        .from('covers')
+        .getPublicUrl(filePath);
+      
+      if (!data.publicUrl) throw new Error('Failed to get public URL');
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error in uploadCoverImage:', error);
+      throw error;
+    }
+  };
+
+  const onSubmit = async (data: NovelFormData) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a novel",
+        variant: "destructive"
+      });
+      return;
     }
     
-    const { data } = supabase.storage
-      .from('covers')
-      .getPublicUrl(filePath);
-    
-    return data.publicUrl;
-  };
-  
-  const onSubmit = async (data: NovelFormData) => {
-    if (!user) return;
+    if (selectedGenres.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one genre",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
-      // Create novel with initial values
-      const { data: novel, error } = await supabase
+      // Create the novel first
+      const { data: novel, error: novelError } = await supabase
         .from('novels')
         .insert({
           title: data.title,
           description: data.description,
-          status: status, // Use the status state variable directly
+          status: status,
           author_id: user.id,
+          cover_image: null,
+          views: 0,
+          updated_at: new Date().toISOString()
         })
         .select()
         .single();
       
-      if (error) throw error;
-      
-      // Handle cover image upload if selected
+      if (novelError) {
+        console.error('Error creating novel:', novelError);
+        throw novelError;
+      }
+
+      // Upload cover image if selected
       if (coverImage) {
         try {
-          const imageUrl = await uploadCoverImage(novel.id, coverImage);
+          const uploadedUrl = await uploadCoverImage(novel.id, coverImage);
           
-          // Update novel with cover image URL
-          const { error: updateError } = await supabase
+          const { error: coverUpdateError } = await supabase
             .from('novels')
-            .update({ cover_image: imageUrl })
+            .update({ 
+              cover_image: uploadedUrl,
+              updated_at: new Date().toISOString()
+            })
             .eq('id', novel.id);
           
-          if (updateError) {
-            console.error('Error updating novel with cover image:', updateError);
+          if (coverUpdateError) {
+            console.error('Error updating cover image:', coverUpdateError);
+            toast({
+              title: "Warning",
+              description: "Cover image update failed. You can add it later.",
+              variant: "warning"
+            });
           }
         } catch (uploadError) {
-          console.error('Error during image upload:', uploadError);
-          // Continue with novel creation even if image upload fails
+          console.error('Error uploading cover image:', uploadError);
+          toast({
+            title: "Warning",
+            description: "Novel created but cover image upload failed. You can add it later.",
+            variant: "warning"
+          });
         }
       }
       
@@ -188,6 +208,11 @@ const CreateNovel = () => {
           
         if (genreError) {
           console.error('Error adding genres:', genreError);
+          toast({
+            title: "Warning",
+            description: "Novel created but genre assignment failed. Please try updating them later.",
+            variant: "warning"
+          });
         }
       }
       
@@ -204,47 +229,37 @@ const CreateNovel = () => {
           
         if (tagError) {
           console.error('Error adding tags:', tagError);
+          toast({
+            title: "Warning",
+            description: "Novel created but tag assignment failed. Please try updating them later.",
+            variant: "warning"
+          });
         }
       }
       
       toast({
-        title: "Novel created!",
-        description: "Your novel has been successfully created.",
+        title: "Success",
+        description: "Your novel has been created successfully!",
       });
       
       navigate(`/author/novels/${novel.id}/edit`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating novel:', error);
       toast({
         title: "Error",
-        description: "There was an error creating your novel. Please try again.",
+        description: error.message || "There was an error creating your novel. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-  
-
 
   if (!user) {
     return null; // Will redirect in useEffect
   }
-  function handleGenreChange(id: string, checked: boolean): void {
-    const genre = availableGenres.find(g => g.id === id);
-    if (!genre) return;
 
-    setSelectedGenres(prev => {
-      if (checked) {
-        // add if not already present
-        if (prev.some(g => g.id === id)) return prev;
-        return [...prev, genre];
-      } else {
-        // remove if present
-        return prev.filter(g => g.id !== id);
-      }
-    });
-  } return (
+  return (
     <Container>
       <div className="py-10">
         <h1 className="text-3xl font-bold mb-6">Create a New Novel</h1>
@@ -369,8 +384,6 @@ const CreateNovel = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
-
             </CardContent>
             
             <CardFooter className="flex justify-between">
