@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Novel } from '@/types/novels';
 import { supabase } from '@/integrations/supabase/client';
 import Container from '@/components/common/Container';
 import NovelCard from '@/components/novels/NovelCard';
@@ -10,22 +11,94 @@ import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const fetchNovels = async () => {
-  const { data, error } = await supabase
+interface NovelWithRelations extends Novel {
+  novel_genres: { genre: any }[];
+  novel_tags: { tag: any }[];
+  ratings: { rating: number }[];
+}
+
+interface QueryResult {
+  recent: NovelWithRelations[];
+  all: NovelWithRelations[];
+}
+
+const fetchNovels = async (): Promise<QueryResult> => {
+  const recentQuery = supabase
     .from('novels')
     .select(`
-      *,
-      author:profiles(username, display_name),
-      novel_genres(genres(*)),
-      chapters(count)
+      id,
+      title,
+      description,
+      cover_image,
+      status,
+      created_at,
+      updated_at,
+      author:profiles(id, username, display_name),
+      novel_genres(
+        genre:genres(*)
+      ),
+      novel_tags(
+        tag:tags(*)
+      ),
+      ratings(rating)
     `)
+    .order('updated_at', { ascending: false })
     .limit(30);
 
-  if (error) {
-    throw error;
-  }
+  const allQuery = supabase
+    .from('novels')
+    .select(`
+      id,
+      title,
+      description,
+      cover_image,
+      status,
+      created_at,
+      updated_at,
+      author:profiles(id, username, display_name),
+      novel_genres(
+        genre:genres(*)
+      ),
+      novel_tags(
+        tag:tags(*)
+      ),
+      ratings(rating)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(30);
 
-  return data.map(novel => ({
+  const [recentResult, allResult] = await Promise.all([recentQuery, allQuery]);
+
+  if (recentResult.error) throw recentResult.error;
+  if (allResult.error) throw allResult.error;
+
+  const processNovels = (novels: any[]) => novels.map(novel => ({
+    ...novel,
+    genres: novel.novel_genres?.map((ng: any) => ng.genre) || [],
+    tags: novel.novel_tags?.map((nt: any) => nt.tag) || [],
+    averageRating: novel.ratings?.length > 0
+      ? novel.ratings.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0) / novel.ratings.length
+      : 0
+  }));
+
+  return {
+    recent: processNovels(recentResult.data || []),
+    all: processNovels(allResult.data || [])
+  };
+
+const fetchNovels = async () => {
+  const [recent, all] = await Promise.all([
+    fetchRecentNovels(),
+    fetchAllNovels()
+  ]);
+
+  return {
+    recent,
+    all
+  };
+};
+
+const processNovel = (novel: any) => ({
     id: novel.id,
     title: novel.title,
     author: novel.author.display_name || novel.author.username,
@@ -43,9 +116,10 @@ const fetchNovels = async () => {
 
 const Browse = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const { data: novels, isLoading, error } = useQuery({
-    queryKey: ['browsedNovels'],
-    queryFn: fetchNovels,
+  
+  const { data: novels, isLoading, error } = useQuery<QueryResult>({
+    queryKey: ['novels'],
+    queryFn: fetchNovels
   });
 
   const filteredNovels = novels?.filter(novel => 
@@ -57,44 +131,79 @@ const Browse = () => {
   return (
     <Container>
       <div className="py-10">
-        <h1 className="text-3xl font-bold mb-6">Browse Novels</h1>
-        
-        <div className="relative mb-8">
-          <Input
-            placeholder="Search by title, author, or genre"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Browse Novels</h1>
+          <p className="text-muted-foreground mt-2">
+            Discover new stories to read
+          </p>
         </div>
-        
-        <Tabs defaultValue="all">
-          <TabsList className="mb-6">
+
+        <div className="flex gap-4 mb-6">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search novels..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button variant="outline">
+            Filter
+          </Button>
+        </div>
+
+        <Tabs defaultValue="recent" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="recent">Recently Updated</TabsTrigger>
             <TabsTrigger value="all">All Novels</TabsTrigger>
-            <TabsTrigger value="ongoing">Ongoing</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="all" className="mt-0">
-            {renderNovelGrid(filteredNovels, isLoading, error)}
-          </TabsContent>
-          
-          <TabsContent value="ongoing" className="mt-0">
-            {renderNovelGrid(
-              filteredNovels?.filter(novel => novel.status?.toLowerCase() === 'ongoing'),
-              isLoading,
-              error
-            )}
-          </TabsContent>
-          
-          <TabsContent value="completed" className="mt-0">
-            {renderNovelGrid(
-              filteredNovels?.filter(novel => novel.status?.toLowerCase() === 'completed'),
-              isLoading,
-              error
-            )}
-          </TabsContent>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="h-48 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-10">
+              <p className="text-red-500">Error loading novels</p>
+            </div>
+          ) : (
+            <>
+              <TabsContent value="recent">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {novels?.recent
+                    .filter(novel => 
+                      novel.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      novel.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((novel) => (
+                      <NovelCard key={novel.id} novel={novel} />
+                    ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="all">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {novels?.all
+                    .filter(novel => 
+                      novel.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      novel.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((novel) => (
+                      <NovelCard key={novel.id} novel={novel} />
+                    ))}
+                </div>
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     </Container>
