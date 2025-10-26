@@ -14,25 +14,67 @@ import Container from '@/components/common/Container';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Upload } from 'lucide-react';
+import GenreSelector from '@/components/novels/GenreSelector';
+import TagSelector from '@/components/novels/TagSelector';
+
+interface Genre {
+  id: string;
+  name: string;
+}
+
+interface Tag {
+  id: string;
+  name: string;
+}
 
 interface NovelFormData {
   title: string;
   description: string;
   status: 'ongoing' | 'completed' | 'hiatus';
+  genres: Genre[];
+  tags: Tag[];
 }
 
 const CreateNovel = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedGenres, setSelectedGenres] = useState<Genre[]>([]);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [availableGenres, setAvailableGenres] = useState<{id: string, name: string}[]>([]);
+  const [availableGenres, setAvailableGenres] = useState<Genre[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState<string>('');
   const [status, setStatus] = useState<'ongoing' | 'completed' | 'hiatus'>('ongoing');
   
   const { register, handleSubmit, formState: { errors } } = useForm<NovelFormData>();
+
+  useEffect(() => {
+    const fetchGenresAndTags = async () => {
+      try {
+        const [genresResponse, tagsResponse] = await Promise.all([
+          supabase.from('genres').select('*').order('name'),
+          supabase.from('tags').select('*').order('name')
+        ]);
+
+        if (genresResponse.error) throw genresResponse.error;
+        if (tagsResponse.error) throw tagsResponse.error;
+
+        setAvailableGenres(genresResponse.data);
+        setAvailableTags(tagsResponse.data);
+      } catch (error) {
+        console.error('Error fetching genres and tags:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load genres and tags',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchGenresAndTags();
+  }, [toast]);
 
   useEffect(() => {
     if (!user) {
@@ -135,9 +177,9 @@ const CreateNovel = () => {
       
       // Add genres
       if (selectedGenres.length > 0) {
-        const genreInserts = selectedGenres.map(genreId => ({
+        const genreInserts = selectedGenres.map(genre => ({
           novel_id: novel.id,
-          genre_id: genreId
+          genre_id: genre.id
         }));
         
         const { error: genreError } = await supabase
@@ -146,6 +188,22 @@ const CreateNovel = () => {
           
         if (genreError) {
           console.error('Error adding genres:', genreError);
+        }
+      }
+      
+      // Add tags
+      if (selectedTags.length > 0) {
+        const tagInserts = selectedTags.map(tag => ({
+          novel_id: novel.id,
+          tag_id: tag.id
+        }));
+        
+        const { error: tagError } = await supabase
+          .from('novel_tags')
+          .insert(tagInserts);
+          
+        if (tagError) {
+          console.error('Error adding tags:', tagError);
         }
       }
       
@@ -167,13 +225,7 @@ const CreateNovel = () => {
     }
   };
   
-  const handleGenreChange = (genreId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedGenres(prev => [...prev, genreId]);
-    } else {
-      setSelectedGenres(prev => prev.filter(id => id !== genreId));
-    }
-  };
+
 
   if (!user) {
     return null; // Will redirect in useEffect
@@ -251,6 +303,43 @@ const CreateNovel = () => {
                 </div>
               </div>
               
+              <div className="space-y-2">
+                <Label htmlFor="genres">Genres</Label>
+                <GenreSelector
+                  selectedGenres={selectedGenres}
+                  availableGenres={availableGenres}
+                  onChange={setSelectedGenres}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags</Label>
+                <TagSelector
+                  selectedTags={selectedTags}
+                  availableTags={availableTags}
+                  onChange={setSelectedTags}
+                  onCreateTag={async (tagName) => {
+                    const { data, error } = await supabase
+                      .from('tags')
+                      .insert({ name: tagName })
+                      .select()
+                      .single();
+                    
+                    if (error) {
+                      toast({
+                        title: 'Error',
+                        description: 'Failed to create tag',
+                        variant: 'destructive',
+                      });
+                      return null;
+                    }
+                    
+                    setAvailableTags(prev => [...prev, data]);
+                    return data;
+                  }}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
