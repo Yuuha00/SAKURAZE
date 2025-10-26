@@ -19,8 +19,8 @@ interface SiteSettings {
 }
 
 const defaultSettings = {
-  site_name: 'NovelVerse',
-  footer_site_name: 'NovelHaven',
+  site_name: 'Sakuraze',
+  footer_site_name: 'Sakuraze',
   site_tagline: 'Discover the best stories from emerging and established authors.'
 };
 
