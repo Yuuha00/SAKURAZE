@@ -34,9 +34,9 @@ const NovelCard: React.FC<NovelCardProps> = ({
   const novelId = novel?.id || id;
   const novelTitle = novel?.title || title;
   const novelAuthor = novel?.author || author;
-  const novelCover = novel?.coverImage || coverImage;
+  const novelCover = novel?.cover_image || coverImage;
   const novelRating = novel?.rating || rating;
-  const novelGenres = novel?.genres || genres;
+  const novelGenres = novel?.genres?.map(g => g.name) || genres;
   const novelViews = novel?.views || views;
   const novelBookmarks = novel?.bookmarks || bookmarks;
 

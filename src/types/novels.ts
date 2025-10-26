@@ -26,39 +26,34 @@ export interface Chapter {
   content: string;
   created_at: string;
   updated_at: string;
+  reference_id?: string;
 }
 
 export interface Novel {
   id: string;
   title: string;
   description: string;
-  cover_image: string | null;
-  status: 'ongoing' | 'completed' | 'hiatus';
-  author: Author;
+  cover_image: string;
+  author: string;
+  author_id: string;
+  status: "Ongoing" | "Completed" | "Hiatus";
   created_at: string;
   updated_at: string;
+  views: number;
+  rating: number;
+  bookmarks?: number;
   genres: Genre[];
   tags: Tag[];
-  chapters?: Chapter[];
-  views?: number;
-  bookmarks?: number;
-  averageRating?: number;
-  is_premium?: boolean;
+  chapters: Chapter[];
 }
 
-export interface Chapter {
-  id: string;
-  title: string;
-  chapterNumber: number;
-  chapter_number?: number;
-  content?: string;
-  views?: number;
-  createdAt?: string;
-  created_at?: string;
-  isPremium?: boolean;
-  is_premium?: boolean;
-  coin_cost?: number;
-  novel_id?: string;
-  // Added reference_id for transactions
-  reference_id?: string;
+export interface NovelWithAuthor extends Omit<Novel, 'author'> {
+  author: Author;
+}
+
+export interface NovelWithRelations extends NovelWithAuthor {
+  novel_genres: { genres: Genre }[];
+  novel_tags: { tags: Tag }[];
+  ratings: { rating: number }[];
+  count?: number;
 }

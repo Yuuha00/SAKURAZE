@@ -182,7 +182,7 @@ const CreateNovel = () => {
             toast({
               title: "Warning",
               description: "Cover image update failed. You can add it later.",
-              variant: "warning"
+              variant: "destructive"
             });
           }
         } catch (uploadError) {
@@ -190,7 +190,7 @@ const CreateNovel = () => {
           toast({
             title: "Warning",
             description: "Novel created but cover image upload failed. You can add it later.",
-            variant: "warning"
+            variant: "default"
           });
         }
       }
@@ -211,7 +211,7 @@ const CreateNovel = () => {
           toast({
             title: "Warning",
             description: "Novel created but genre assignment failed. Please try updating them later.",
-            variant: "warning"
+            variant: "default"
           });
         }
       }
@@ -232,7 +232,7 @@ const CreateNovel = () => {
           toast({
             title: "Warning",
             description: "Novel created but tag assignment failed. Please try updating them later.",
-            variant: "warning"
+            variant: "default"
           });
         }
       }

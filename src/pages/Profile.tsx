@@ -66,19 +66,19 @@ const Profile = () => {
               return {
                 id: novel.id,
                 title: novel.title,
+                description: novel.description || '',
+                cover_image: novel.cover_image || '/placeholder.svg',
                 author: novel.profiles?.display_name || novel.profiles?.username || 'Unknown Author',
-                authorId: novel.author_id,
-                coverImage: novel.cover_image || '/placeholder.svg',
-                rating: novel.rating || 0,
+                author_id: novel.author_id,
+                status: novel.status as "Ongoing" | "Completed" | "Hiatus",
+                created_at: novel.created_at,
+                updated_at: novel.updated_at,
                 views: novel.views || 0,
+                rating: novel.rating || 0,
                 bookmarks: novel.bookmarks || 0,
                 genres: [],
-                status: novel.status as "Ongoing" | "Completed" | "Hiatus",
-                chapters: [],
                 tags: [],
-                createdAt: novel.created_at,
-                updatedAt: novel.updated_at,
-                description: novel.description || '',
+                chapters: []
               };
             });
             setBookmarkedNovels(formattedNovels as Novel[]);
@@ -114,19 +114,19 @@ const Profile = () => {
               return {
                 id: novel.id,
                 title: novel.title,
+                description: novel.description || '',
+                cover_image: novel.cover_image || '/placeholder.svg',
                 author: novel.profiles?.display_name || novel.profiles?.username || 'Unknown Author',
-                authorId: novel.author_id,
-                coverImage: novel.cover_image || '/placeholder.svg',
-                rating: novel.rating || 0,
+                author_id: novel.author_id,
+                status: novel.status as "Ongoing" | "Completed" | "Hiatus",
+                created_at: novel.created_at,
+                updated_at: novel.updated_at,
                 views: novel.views || 0,
+                rating: novel.rating || 0,
                 bookmarks: novel.bookmarks || 0,
                 genres: [],
-                status: novel.status as "Ongoing" | "Completed" | "Hiatus",
-                chapters: [],
                 tags: [],
-                createdAt: novel.created_at,
-                updatedAt: novel.updated_at,
-                description: novel.description || '',
+                chapters: []
               };
             });
             setReadingHistory(formattedNovels as Novel[]);

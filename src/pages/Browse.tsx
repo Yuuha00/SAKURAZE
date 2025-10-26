@@ -96,8 +96,8 @@ const fetchNovels = async (): Promise<QueryResult> => {
         rating: novel.ratings?.length > 0
           ? novel.ratings.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0) / novel.ratings.length
           : 0,
-        genres: novel.novel_genres?.map((ng: any) => ng.genres) || [],
-        tags: novel.novel_tags?.map((nt: any) => nt.tags) || [],
+        genres: novel.novel_genres?.map((ng: any) => ng.genres).filter(Boolean) || [],
+        tags: novel.novel_tags?.map((nt: any) => nt.tags).filter(Boolean) || [],
         chapters: []
       }));
 
