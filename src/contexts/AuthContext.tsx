@@ -112,18 +112,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, username: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             username,
             display_name: username,
+            email_verified: false,
+            phone_verified: false,
           },
+          emailRedirectTo: `${import.meta.env.VITE_SITE_URL}/auth/callback`
         },
-      });
-
-      if (error) {
+      });      if (error) {
         toast({
           title: "Signup Failed",
           description: error.message,

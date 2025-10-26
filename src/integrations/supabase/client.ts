@@ -13,11 +13,14 @@ export const supabase = createClient<Database>(
   SUPABASE_PUBLISHABLE_KEY,
   {
     auth: {
-      autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      flowType: 'pkce',
-      redirectTo: import.meta.env.VITE_SITE_URL
+      flowType: 'pkce'
+    },
+    global: {
+      headers: {
+        'x-application-name': 'sakuraze'
+      }
     }
   }
 );
