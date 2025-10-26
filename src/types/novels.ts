@@ -1,31 +1,49 @@
 
+export interface Author {
+  id: string;
+  username: string;
+  display_name: string | null;
+}
+
+export interface Genre {
+  id: string;
+  name: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+}
+
+export interface Chapter {
+  id: string;
+  title: string;
+  chapter_number: number;
+  novel_id: string;
+  is_premium: boolean;
+  coin_cost: number;
+  views: number;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Novel {
   id: string;
   title: string;
   description: string;
-  cover_image?: string;
-  coverImage?: string; 
-  author: string;
-  author_id?: string;
-  authorId?: string;
-  rating: number;
-  views: number;
-  bookmarks: number;
+  cover_image: string | null;
+  status: 'ongoing' | 'completed' | 'hiatus';
+  author: Author;
+  created_at: string;
+  updated_at: string;
+  genres: Genre[];
+  tags: Tag[];
   chapters?: Chapter[];
-  genres?: string[];
-  status: 'ongoing' | 'completed' | 'hiatus' | 'Ongoing' | 'Completed' | 'Hiatus';
-  tags?: string[];
-  created_at?: string;
-  updated_at?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  profiles?: {
-    username?: string;
-    display_name?: string;
-  };
-  // For compatibility with both naming conventions
+  views?: number;
+  bookmarks?: number;
+  averageRating?: number;
   is_premium?: boolean;
-  isPremium?: boolean;
 }
 
 export interface Chapter {

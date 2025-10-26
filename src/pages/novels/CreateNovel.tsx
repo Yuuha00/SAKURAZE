@@ -230,8 +230,21 @@ const CreateNovel = () => {
   if (!user) {
     return null; // Will redirect in useEffect
   }
+  function handleGenreChange(id: string, checked: boolean): void {
+    const genre = availableGenres.find(g => g.id === id);
+    if (!genre) return;
 
-  return (
+    setSelectedGenres(prev => {
+      if (checked) {
+        // add if not already present
+        if (prev.some(g => g.id === id)) return prev;
+        return [...prev, genre];
+      } else {
+        // remove if present
+        return prev.filter(g => g.id !== id);
+      }
+    });
+  } return (
     <Container>
       <div className="py-10">
         <h1 className="text-3xl font-bold mb-6">Create a New Novel</h1>
@@ -357,22 +370,7 @@ const CreateNovel = () => {
                 </Select>
               </div>
               
-              <div className="space-y-2">
-                <Label>Genres</Label>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {availableGenres.map((genre) => (
-                    <div className="flex items-center space-x-2" key={genre.id}>
-                      <Checkbox
-                        id={`genre-${genre.id}`}
-                        onCheckedChange={(checked) => 
-                          handleGenreChange(genre.id, checked as boolean)
-                        }
-                      />
-                      <Label htmlFor={`genre-${genre.id}`}>{genre.name}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
             </CardContent>
             
             <CardFooter className="flex justify-between">

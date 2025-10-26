@@ -11,6 +11,34 @@ import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+interface Genre {
+  id: string;
+  name: string;
+}
+
+interface Tag {
+  id: string;
+  name: string;
+}
+
+interface Author {
+  id: string;
+  username: string;
+  display_name: string | null;
+}
+
+interface NovelWithRelations extends Omit<Novel, 'author'> {
+  author: Author;
+  genres: Genre[];
+  tags: Tag[];
+  averageRating: number;
+}
+
+interface QueryResult {
+  recent: NovelWithRelations[];
+  all: NovelWithRelations[];
+}
+
 interface NovelWithRelations extends Novel {
   novel_genres: { genre: any }[];
   novel_tags: { tag: any }[];
@@ -33,12 +61,17 @@ const fetchNovels = async (): Promise<QueryResult> => {
       status,
       created_at,
       updated_at,
-      author:profiles(id, username, display_name),
+      views,
+      author:profiles!author_id(
+        id,
+        username,
+        display_name
+      ),
       novel_genres(
-        genre:genres(*)
+        genres(*)
       ),
       novel_tags(
-        tag:tags(*)
+        tags(*)
       ),
       ratings(rating)
     `)
@@ -55,12 +88,17 @@ const fetchNovels = async (): Promise<QueryResult> => {
       status,
       created_at,
       updated_at,
-      author:profiles(id, username, display_name),
+      views,
+      author:profiles!author_id(
+        id,
+        username,
+        display_name
+      ),
       novel_genres(
-        genre:genres(*)
+        genres(*)
       ),
       novel_tags(
-        tag:tags(*)
+        tags(*)
       ),
       ratings(rating)
     `)
@@ -72,10 +110,18 @@ const fetchNovels = async (): Promise<QueryResult> => {
   if (recentResult.error) throw recentResult.error;
   if (allResult.error) throw allResult.error;
 
-  const processNovels = (novels: any[]) => novels.map(novel => ({
-    ...novel,
-    genres: novel.novel_genres?.map((ng: any) => ng.genre) || [],
-    tags: novel.novel_tags?.map((nt: any) => nt.tag) || [],
+  const processNovels = (novels: any[]): NovelWithRelations[] => novels.map(novel => ({
+    id: novel.id,
+    title: novel.title,
+    description: novel.description,
+    cover_image: novel.cover_image,
+    status: novel.status,
+    created_at: novel.created_at,
+    updated_at: novel.updated_at,
+    views: novel.views,
+    author: novel.author,
+    genres: novel.novel_genres?.map((ng: any) => ng.genres) || [],
+    tags: novel.novel_tags?.map((nt: any) => nt.tags) || [],
     averageRating: novel.ratings?.length > 0
       ? novel.ratings.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0) / novel.ratings.length
       : 0
